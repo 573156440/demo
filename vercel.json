@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/docs/mqtt-reboot",
+      "destination": "/MQTT-reboot告警恢复说明.html"
+    }
+  ]
+}

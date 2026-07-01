@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="UTF-8"><title>MQTT Reboot 告警恢复说明</title>
+<style>body{font-family:sans-serif;max-width:900px;margin:40px auto;padding:0 20px;line-height:1.7;color:#333}
+h1{color:#1a5276;border-bottom:2px solid #3498db;padding-bottom:8px}
+h2{color:#2874a6;margin-top:28px}table{border-collapse:collapse;width:100%;margin:16px 0}
+th,td{border:1px solid #bdc3c7;padding:10px;text-align:left}th{background:#ebf5fb}
+code{background:#f4f6f7;padding:2px 6px;border-radius:3px;font-size:0.95em}
+pre{background:#2c3e50;color:#ecf0f1;padding:16px;border-radius:6px;overflow-x:auto}
+.ok{color:#27ae60;font-weight:bold}.warn{color:#e67e22}.note{background:#fef9e7;border-left:4px solid #f1c40f;padding:12px 16px;margin:16px 0}
+</style></head><body>
+<h1>MQTT Reboot 后 event-values 告警丢失 — 排查与修复说明</h1>
+<p>服务器：<strong>192.168.2.201</strong>　日期：2026-06-12</p>
+<h2>一、现象</h2><p>系统 reboot 后，MQTT 上 <code>event-values/#</code> 订阅无消息；MySQL <code>event_value_lasts</code> 中仍有活动告警（phase=start）。</p>
+<h2>二、根因（两个独立问题）</h2>
+<table><tr><th>问题</th><th>原因</th><th>影响</th></tr>
+<tr><td>Mosquitto persistence 未生效</td><td>Broker 以 <code>nobody</code> 运行，原路径 <code>/root/app/data/mosquitto/</code> 因 <code>/root</code> 权限 700 无法写入，日志报 Permission denied</td><td>Broker 重启后所有 retained 消息丢失</td></tr>
+<tr><td>monitoring 启动不重发</td><td><code>monitoring.yaml</code> 中 <code>DisablePublishLast: true</code>，CEP 启动时跳过 <code>PublishLastValues()</code></td><td>即使 DB 有告警，也不会补发到 MQTT</td></tr></table>
+<h2>三、只改 monitoring 能否解决问题？</h2>
+<p class="ok">能。针对「reboot 后活动告警 event-values 消失」这一问题，<strong>仅将 <code>DisablePublishLast</code> 改为 <code>false</code> 即可解决</strong>。</p>
+<p>原理：monitoring 启动后会从 MySQL 读取 <code>event_value_lasts</code> / <code>signal_value_lasts</code>，并以 <code>retain=true</code> 重新发布到 MQTT。</p>
+<div class="note"><strong>注意：</strong>monitoring 完全启动约需 <strong>15～20 秒</strong>，此期间前端可能暂时看不到告警，属正常现象。</div>
+<p>已在 201 上验证：删除 <code>mosquitto.db</code>、空启动 broker 后，<strong>仅重启 monitoring</strong>，2 条 event-values 告警均恢复。</p>
+<h2>四、是否还需要改 Mosquitto？</h2>
+<p class="warn">建议改，但不是解决 event-values 的必要条件。</p>
+<table><tr><th>场景</th><th>仅 DisablePublishLast=false</th><th>+ Mosquitto persistence</th></tr>
+<tr><td>整机 reboot 后活动告警恢复</td><td>✅ 可以（等 monitoring 启动）</td><td>✅ 可以（更快）</td></tr>
+<tr><td>仅重启 broker、不重启 monitoring</td><td>❌ 消息仍丢失</td><td>✅ 从 mosquitto.db 恢复</td></tr>
+<tr><td>signal-values / sample-values 等其它 retained</td><td>❌ 不自动恢复</td><td>✅ 持久化保留</td></tr>
+<tr><td>MySQL 启动慢于 monitoring</td><td>⚠️ 可能重发失败</td><td>✅ persistence 可兜底</td></tr></table>
+<h2>五、当前 201 已做修改</h2>
+<h3>1. monitoring.yaml</h3><pre>App:
+  DisablePublishLast: false   # 原为 true</pre>
+<h3>2. mosquitto.conf</h3><pre>persistence true
+persistence_location /var/lib/mosquitto/   # 原为 /root/app/data/mosquitto/
+persistence_file mosquitto.db
+autosave_interval 300</pre>
+<h3>3. 目录权限</h3><pre>mkdir -p /var/lib/mosquitto
+chown nobody:nogroup /var/lib/mosquitto
+chmod 755 /var/lib/mosquitto</pre>
+<h2>六、验证命令</h2><pre># 订阅活动告警
+mosquitto_sub -h 127.0.0.1 -t 'event-values/#' -v -W 5
+
+# 查看 DB 中活动告警
+/usr/local/mysql/bin/mysql -uhyiot -phy2022 hussar \
+  -e "SELECT equipment, event, JSON_EXTRACT(data,'$.phase') FROM event_value_lasts;"
+
+# 查看 persistence 是否写入
+ls -la /var/lib/mosquitto/mosquitto.db
+
+grep -E 'Saving|Permission denied' /root/app/logs/broker.logfile.stdout | tail -5</pre>
+<h2>七、reboot 后预期行为</h2><ol>
+<li>Broker 先启动（若有 mosquitto.db 则立即恢复 retained）</li>
+<li>MySQL 启动后 monitoring 连接 DB（内置重试最多 10 次）</li>
+<li>CEP 启动完成 → 从 DB 重发 event-values / signal-values（DisablePublishLast=false）</li>
+<li>约 20 秒内前端告警列表恢复正常</li></ol>
+<h2>八、相关路径</h2>
+<table><tr><th>用途</th><th>路径</th></tr>
+<tr><td>Mosquitto 配置</td><td>/root/app/configs/mosquitto.conf</td></tr>
+<tr><td>monitoring 配置</td><td>/root/app/configs/monitoring.yaml</td></tr>
+<tr><td>Persistence 数据</td><td>/var/lib/mosquitto/mosquitto.db</td></tr>
+<tr><td>Broker 日志</td><td>/root/app/logs/broker.logfile.stdout</td></tr>
+<tr><td>monitoring 日志</td><td>/root/app/logs/monitoring.log</td></tr>
+<tr><td>supervisord 控制</td><td>/root/app/supervisord/supervisord ctl -c /root/app/supervisord/supervisord.conf restart monitoring</td></tr></table>
+</body></html>
