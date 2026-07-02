@@ -146,6 +146,12 @@ a:hover {
   margin-bottom: 16px;
 }
 
+.status-msg {
+  color: #2874a6;
+  font-size: 0.9em;
+  margin-bottom: 16px;
+}
+
 .tag {
   color: #888;
   font-size: 0.85em;
