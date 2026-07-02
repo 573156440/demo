@@ -8,8 +8,9 @@ import {
   getFormatFromFilename,
 } from "@/lib/types/document";
 
-function sanitizeFilename(name: string): string {
-  return name.replace(/[^\w.\-()\u4e00-\u9fff]/g, "_");
+function buildStoragePath(userId: string, format: string): string {
+  const ext = format === "pdf" ? ".pdf" : ".html";
+  return `${userId}/${Date.now()}-${crypto.randomUUID()}${ext}`;
 }
 
 function titleFromFilename(name: string): string {
@@ -23,7 +24,9 @@ function explainError(step: string, message: string): string {
   if (message.includes("Bucket not found")) {
     return `${step}失败：Storage 桶 documents 不存在，请执行 supabase/fix-upload-complete.sql`;
   }
-  if (message.includes("Failed to fetch") || message.includes("fetch")) {
+  if (message.includes("InvalidKey") || message.includes("Invalid key")) {
+    return `${step}失败：文件名含 Supabase Storage 不支持的字符，请重试（已自动改用安全路径）`;
+  }
     return `${step}失败：无法连接 Supabase，请检查网络或 VPN`;
   }
   return `${step}失败：${message}`;
@@ -73,7 +76,7 @@ export default function UploadForm() {
 
     setLoading(true);
 
-    const storagePath = `${user.id}/${Date.now()}-${sanitizeFilename(file.name)}`;
+    const storagePath = buildStoragePath(user.id, format);
     const fileSizeMb = Math.round((file.size / 1024 / 1024) * 100) / 100;
 
     setStatus("正在上传文件到 Storage…");
