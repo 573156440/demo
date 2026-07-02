@@ -1,6 +1,6 @@
 body {
   font-family: sans-serif;
-  max-width: 720px;
+  max-width: 960px;
   margin: 48px auto;
   padding: 0 20px;
   line-height: 1.6;
@@ -50,6 +50,25 @@ a:hover {
 
 .user-bar span {
   color: #555;
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-link {
+  padding: 6px 14px;
+  border: 1px solid #2874a6;
+  border-radius: 6px;
+  color: #2874a6;
+  font-size: 0.9em;
+}
+
+.btn-link:hover {
+  background: #ebf5fb;
+  text-decoration: none;
 }
 
 .logout-btn {
@@ -130,4 +149,97 @@ a:hover {
 .tag {
   color: #888;
   font-size: 0.85em;
+}
+
+.empty-msg {
+  color: #666;
+  padding: 24px 0;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 20px 0;
+}
+
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+
+.doc-table th,
+.doc-table td {
+  border: 1px solid #dce4ec;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.doc-table th {
+  background: #ebf5fb;
+  color: #1a5276;
+  white-space: nowrap;
+}
+
+.doc-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.upload-page h1 {
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+
+.upload-page p {
+  color: #666;
+  margin-bottom: 24px;
+}
+
+.upload-form label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.9em;
+  color: #555;
+}
+
+.upload-form input[type="text"],
+.upload-form input[type="file"] {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  border: 1px solid #bdc3c7;
+  border-radius: 6px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.upload-form button {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 6px;
+  background: #2874a6;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.upload-form button:hover {
+  background: #1a5276;
+}
+
+.upload-form button:disabled {
+  background: #95a5a6;
+  cursor: not-allowed;
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+}
+
+.file-hint {
+  color: #666;
+  font-size: 0.9em;
+  margin: -8px 0 16px;
 }

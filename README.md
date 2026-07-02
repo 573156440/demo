@@ -1,88 +1,76 @@
 # demo
 
-技术文档共享站点：**Next.js + Supabase Auth + Vercel**。
+技术文档共享站点：**Next.js + Supabase + Vercel**。
 
-登录后才能访问 HTML / PDF 文档；用户由管理员在 Supabase 后台邀请创建（邀请制）。
+登录后可上传、查看 HTML / PDF 文档；元数据存 PostgreSQL，文件存 Supabase Storage。
 
 ## 项目结构
 
 ```
 demo/
 ├── app/
-│   ├── page.tsx              # 文档目录（需登录）
-│   ├── login/                # 登录页
-│   └── auth/callback/        # Supabase 回调
-├── components/
-├── lib/supabase/             # Supabase 客户端
-├── middleware.ts             # 鉴权拦截（核心）
-├── public/                   # HTML、PDF 静态文件
-└── next.config.ts            # 文档短链 rewrite
+│   ├── page.tsx                    # 文档列表
+│   ├── upload/                     # 上传文档
+│   ├── api/documents/[id]/         # 鉴权后跳转文件
+│   └── login/
+├── lib/supabase/
+├── supabase/setup-documents.sql    # Storage + RLS 配置
+├── middleware.ts
+└── public/                         # 旧版静态文件（可选保留）
 ```
 
-## 一、创建 Supabase 项目
+## 一、Supabase 初始化
 
-1. 打开 [supabase.com](https://supabase.com) 注册并 **New Project**
-2. 进入 **Project Settings → API**，记下：
-   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
-   - **anon public key** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-3. 进入 **Authentication → Providers → Email**，保持 Email 开启
-4. （推荐）**Authentication → Settings**：
-   - 关闭 **Enable email confirmations**（内测阶段方便）
-   - 关闭 **Enable sign ups**（邀请制，禁止公开注册）
+1. 创建项目，配置 `.env.local`（见 `.env.local.example`）
+2. **Authentication → Users** 创建登录用户
+3. **SQL Editor** 执行建表 SQL（若尚未建 `documents` 表）
+4. **SQL Editor** 执行 `supabase/setup-documents.sql`：
+   - 创建 Storage 桶 `documents`
+   - 配置 `documents` 表与 Storage 的 RLS 策略
 
-## 二、创建用户（邀请制）
-
-Supabase Dashboard → **Authentication → Users → Add user → Create new user**
-
-填写邮箱和密码，发给同事或客户即可。
-
-## 三、本地开发
+## 二、本地开发
 
 ```bash
 cp .env.local.example .env.local
-# 编辑 .env.local，填入 Supabase URL 和 anon key
+# 填入 Supabase URL 和 anon key
 
-npm install
+npm install --registry https://registry.npmjs.org
 npm run dev
 ```
 
-浏览器打开 `http://localhost:3000`，未登录会跳转 `/login`。
+访问 `http://localhost:3000` → 登录 → 上传文档 → 列表查看。
+
+> 国内需 VPN 才能访问 Supabase API。
+
+## 三、功能说明
+
+| 功能 | 说明 |
+|------|------|
+| 登录 | Supabase Auth，邀请制建用户 |
+| 上传 | `/upload`，支持 `.html` / `.pdf` |
+| 列表 | 首页表格：名称、格式、大小、上传人、时间 |
+| 查看 | 点击文档名 → 鉴权 → Supabase 签名 URL |
 
 ## 四、部署到 Vercel
 
-1. 推送代码到 GitHub
-2. Vercel 导入仓库（Framework 会自动识别为 **Next.js**）
-3. **Settings → Environment Variables** 添加：
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-4. 重新 Deploy
+1. `git push` 到 GitHub
+2. Vercel 环境变量配置 `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`
+3. Redeploy
 
-> Vercel 上若之前是静态项目，改框架后会自动用 `next build`，无需再设 Output Directory。
+## 五、documents 表字段
 
-## 五、分享链接
-
-| 页面 | 路径 |
+| 字段 | 说明 |
 |------|------|
-| 文档目录 | `/` |
-| 登录 | `/login` |
-| MQTT 告警说明 | `/docs/mqtt-reboot` |
-| 2300plus 安装指南 | `/docs/2300plus-install` |
-
-未登录访问任意文档路径 → 自动跳转登录页，登录后回到原页面。
-
-## 六、新增文档
-
-1. 将 `.html` 或 `.pdf` 放入 `public/`
-2. 在 `app/page.tsx` 的 `DOCS` 数组增加一条
-3. 在 `next.config.ts` 的 `rewrites` 增加短链（可选）
-4. `git push` 自动部署
-
-## 七、国内访问说明
-
-Vercel 与 Supabase API 在国内可能不稳定，海外用户优先用 Vercel 地址；国内用户建议同步部署到 Gitee Pages 或云 OSS（需单独处理登录）。
+| title | 文档名称 |
+| format | html / pdf |
+| file_path | Storage 路径 |
+| file_size_mb | 大小（MB） |
+| uploaded_by | 上传人 UUID |
+| uploader_email | 上传人邮箱 |
+| uploaded_at | 上传时间 |
 
 ## 技术栈
 
 - Next.js 15（App Router）
-- Supabase Auth（邮箱 + 密码）
+- Supabase Auth + PostgreSQL + Storage
 - Vercel 部署
