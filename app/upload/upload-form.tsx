@@ -27,6 +27,7 @@ function explainError(step: string, message: string): string {
   if (message.includes("InvalidKey") || message.includes("Invalid key")) {
     return `${step}失败：文件名含 Supabase Storage 不支持的字符，请重试（已自动改用安全路径）`;
   }
+  if (message.includes("Failed to fetch") || message.includes("fetch")) {
     return `${step}失败：无法连接 Supabase，请检查网络或 VPN`;
   }
   return `${step}失败：${message}`;
