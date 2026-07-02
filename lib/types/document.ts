@@ -18,6 +18,11 @@ export function getFormatFromFilename(filename: string): string | null {
   return null;
 }
 
+export function getContentType(format: string): string {
+  if (format === "pdf") return "application/pdf";
+  return "text/html; charset=utf-8";
+}
+
 export function formatFileSize(mb: number | null): string {
   if (mb == null) return "—";
   if (mb < 0.01) return "< 0.01 MB";

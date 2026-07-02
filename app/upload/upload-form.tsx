@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   ALLOWED_EXTENSIONS,
+  getContentType,
   getFormatFromFilename,
 } from "@/lib/types/document";
 
@@ -86,7 +87,7 @@ export default function UploadForm() {
       .upload(storagePath, file, {
         cacheControl: "3600",
         upsert: false,
-        contentType: file.type || undefined,
+        contentType: getContentType(format),
       });
 
     if (uploadError) {

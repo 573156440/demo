@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getContentType } from "@/lib/types/document";
 
 export async function GET(
   _request: Request,
@@ -26,13 +27,22 @@ export async function GET(
     return NextResponse.json({ error: "文档不存在" }, { status: 404 });
   }
 
-  const { data: signed, error: signError } = await supabase.storage
+  const { data: fileData, error: downloadError } = await supabase.storage
     .from("documents")
-    .createSignedUrl(doc.file_path, 3600);
+    .download(doc.file_path);
 
-  if (signError || !signed?.signedUrl) {
-    return NextResponse.json({ error: "无法获取文件链接" }, { status: 500 });
+  if (downloadError || !fileData) {
+    return NextResponse.json({ error: "无法读取文件" }, { status: 500 });
   }
 
-  return NextResponse.redirect(signed.signedUrl);
+  const ext = doc.format === "pdf" ? "pdf" : "html";
+  const filename = `${doc.title}.${ext}`;
+
+  return new NextResponse(await fileData.arrayBuffer(), {
+    headers: {
+      "Content-Type": getContentType(doc.format),
+      "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      "Cache-Control": "private, max-age=3600",
+    },
+  });
 }
